@@ -1,0 +1,14 @@
+{
+  "name": "ecommerce-customs-api-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API relay server for express ecommerce customs workflows.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
