@@ -32,7 +32,7 @@ function createOtherCompanyTomorrowReportDraft() {
   // 3. 스프레드시트 데이터 수집 및 필터링 (최근 500행 제한)
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) {
-    Logger.log('가져올 데이퀰가 없습니다.');
+    Logger.log('가져올 데이터가 없습니다.');
     return;
   }
 
@@ -64,7 +64,7 @@ function createOtherCompanyTomorrowReportDraft() {
     }
   }
 
-  // 4. MAWB/정산처 기준으로 타업체용 일반신고 데이퀰 파일 찾기 및 첨부
+  // 4. MAWB/정산처 기준으로 타업체용 일반신고 데이터 파일 찾기 및 첨부
   var attachmentResult = collectOtherCompanyAttachments_(matchedRows, tomorrowMMDD);
 
   // 5. 이메일 본문 HTML 표 생성
@@ -239,7 +239,7 @@ function findOtherCompanyDriveFileIncludingSharedDrives_(query, fileNameMatcher)
 }
 
 function buildExpectedOtherCompanyAttachmentPattern_(dateMMDD, row) {
-  return dateMMDD + '입항 일반신고데이퀰_' + row.mawb + '_n건(' + row.customer + ').xlsx';
+  return dateMMDD + '입항 일반신고데이터_' + row.mawb + '_n건(' + row.customer + ').xlsx';
 }
 
 function buildOtherCompanyRowKey_(row) {
