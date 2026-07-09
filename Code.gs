@@ -148,7 +148,7 @@ function collectMasterDeclarationAttachment_(matchedRows, dateMMDD) {
 }
 
 function findMasterDeclarationAttachmentFiles_(dateMMDD) {
-  var query = "title contains '" + escapeDriveSearchValue_(dateMMDD) + "' and title contains '일반신고' and title contains '.xlsx' and trashed = false";
+  var query = "title contains '" + escapeDriveSearchValue_(dateMMDD) + "' and title contains '일반신고데이터' and title contains '.xlsx' and trashed = false";
   var files = DriveApp.searchFiles(query);
   var matchedFiles = [];
   var seenFileIds = {};
@@ -185,15 +185,13 @@ function isAliDeclarationAttachmentFile_(fileName, dateMMDD) {
 
   return (
     fileName.indexOf(dateMMDD) !== -1 &&
-    fileName.indexOf('알리(항공)') !== -1 &&
-    fileName.indexOf('일반신고') !== -1 &&
-    fileName.indexOf('인천공항') !== -1 &&
+    fileName.indexOf('일반신고데이터') !== -1 &&
     lowerFileName.slice(-5) === '.xlsx'
   );
 }
 
 function buildExpectedMasterDeclarationAttachmentPattern_(dateMMDD) {
-  return dateMMDD + '입항 알리(항공) 일반신고_MAWB - n건(인천공항).xlsx';
+  return dateMMDD + '입항 일반신고데이터_MAWB - n건.xlsx';
 }
 
 function normalizeMawb(value) {
