@@ -136,6 +136,8 @@ function createOtherCompanyTomorrowReportDraft() {
   Logger.log('첨부 누락 파일 수: ' + attachmentResult.missingFileNames.length);
 }
 
+var OTHER_COMPANY_YEAR_FOLDER_ID = '1hgwXn3UhY8XlFVuO2SFhwp4m9HkVcT1z';
+
 function collectOtherCompanyAttachments_(matchedRows, dateMMDD) {
   var attachments = [];
   var foundMap = {};
@@ -175,26 +177,73 @@ function collectOtherCompanyAttachments_(matchedRows, dateMMDD) {
 }
 
 function findOtherCompanyAttachmentFile_(dateMMDD, row) {
-  var escapedDate = escapeRegExp_(dateMMDD);
-  var escapedMawb = escapeRegExp_(row.mawb);
-  var escapedCustomer = escapeRegExp_(row.customer);
-  var fileNamePattern = new RegExp('^' + escapedDate + '입항 일반신고데이터_' + escapedMawb + '_\\d+건\\(' + escapedCustomer + '\\)\\.xlsx$', 'i');
-  var query = "title contains '" + escapeDriveSearchValue_(row.mawb) + "' and title contains '" + escapeDriveSearchValue_(dateMMDD) + "' and title contains '.xlsx' and trashed = false";
-  var driveFile = findOtherCompanyDriveFileIncludingSharedDrives_(query, function(fileName) {
-    return fileNamePattern.test(fileName);
-  });
+  var query = buildOtherCompanyAttachmentQuery_(dateMMDD, row);
+  var files = DriveApp.searchFiles(query);
+  var checkedFileNames = [];
+  var matchedFile = findOtherCompanyAttachmentFileInIterator_(files, dateMMDD, row, checkedFileNames);
 
-  if (driveFile) {
-    return driveFile;
+  if (matchedFile) {
+    return matchedFile;
   }
 
-  var files = DriveApp.searchFiles(query);
+  var monthFolderResult = findOtherCompanyAttachmentFileInMonthFolder_(dateMMDD, row, query);
 
+  if (monthFolderResult.file) {
+    return monthFolderResult.file;
+  }
+
+  Logger.log('첨부 후보 검색 결과(' + dateMMDD + ', ' + row.mawb + '): ' + (checkedFileNames.length > 0 ? checkedFileNames.join(' / ') : '후보 없음'));
+  Logger.log('월 폴더 후보 검색 결과(' + dateMMDD + ', ' + row.mawb + '): ' + (monthFolderResult.checkedFileNames.length > 0 ? monthFolderResult.checkedFileNames.join(' / ') : '후보 없음'));
+  return null;
+}
+
+function buildOtherCompanyAttachmentQuery_(dateMMDD, row) {
+  var query = "title contains '" + escapeDriveSearchValue_(dateMMDD) + "' and title contains '일반신고데이터' and title contains '.xlsx'";
+
+  if (row.customer) {
+    query += " and title contains '" + escapeDriveSearchValue_(row.customer) + "'";
+  }
+
+  query += ' and trashed = false';
+  return query;
+}
+
+function findOtherCompanyAttachmentFileInMonthFolder_(dateMMDD, row, query) {
+  var checkedFileNames = [];
+  var yearFolder = DriveApp.getFolderById(OTHER_COMPANY_YEAR_FOLDER_ID);
+  var monthFolderName = dateMMDD.substring(0, 2) + '월';
+  var monthFolders = yearFolder.getFoldersByName(monthFolderName);
+
+  while (monthFolders.hasNext()) {
+    var monthFolder = monthFolders.next();
+    var matchedFile = findOtherCompanyAttachmentFileInIterator_(
+      monthFolder.searchFiles(query),
+      dateMMDD,
+      row,
+      checkedFileNames
+    );
+
+    if (matchedFile) {
+      return {
+        file: matchedFile,
+        checkedFileNames: checkedFileNames
+      };
+    }
+  }
+
+  return {
+    file: null,
+    checkedFileNames: checkedFileNames
+  };
+}
+
+function findOtherCompanyAttachmentFileInIterator_(files, dateMMDD, row, checkedFileNames) {
   while (files.hasNext()) {
     var file = files.next();
     var fileName = file.getName();
+    checkedFileNames.push(fileName);
 
-    if (fileNamePattern.test(fileName)) {
+    if (isOtherCompanyAttachmentFile_(fileName, dateMMDD, row)) {
       return file;
     }
   }
@@ -202,46 +251,30 @@ function findOtherCompanyAttachmentFile_(dateMMDD, row) {
   return null;
 }
 
-function findOtherCompanyDriveFileIncludingSharedDrives_(query, fileNameMatcher) {
-  if (typeof Drive === 'undefined' || !Drive.Files || !Drive.Files.list) {
-    Logger.log('고급 Drive 서비스가 꺼져 있어 DriveApp 검색으로 대체합니다.');
-    return null;
-  }
+function isOtherCompanyAttachmentFile_(fileName, dateMMDD, row) {
+  var normalizedFileName = normalizeFileNameForMatch_(fileName);
+  var normalizedCustomer = normalizeFileNameForMatch_(row.customer);
+  var lowerFileName = normalizedFileName.toLowerCase();
 
-  var pageToken = null;
-
-  do {
-    var response = Drive.Files.list({
-      q: query,
-      maxResults: 100,
-      pageToken: pageToken,
-      corpora: 'allDrives',
-      includeItemsFromAllDrives: true,
-      supportsAllDrives: true,
-      fields: 'items(id,title),nextPageToken'
-    });
-
-    var items = response.items || [];
-
-    for (var i = 0; i < items.length; i++) {
-      var item = items[i];
-      var fileName = item.title || '';
-
-      if (fileNameMatcher(fileName)) {
-        return DriveApp.getFileById(item.id);
-      }
-    }
-
-    pageToken = response.nextPageToken;
-  } while (pageToken);
-
-  return null;
+  return (
+    normalizedFileName.indexOf(dateMMDD) !== -1 &&
+    normalizedFileName.indexOf('일반신고데이터') !== -1 &&
+    normalizedFileName.indexOf(row.mawb) !== -1 &&
+    (!normalizedCustomer || normalizedFileName.indexOf(normalizedCustomer) !== -1) &&
+    lowerFileName.slice(-5) === '.xlsx'
+  );
 }
 
 function buildExpectedOtherCompanyAttachmentPattern_(dateMMDD, row) {
-  return dateMMDD + '입항 일반신고데이터_' + row.mawb + '_n건(' + row.customer + ').xlsx';
+  return dateMMDD + '입항 일반신고데이터_' + row.mawb + ' - n건(' + row.customer + ').xlsx';
 }
 
 function buildOtherCompanyRowKey_(row) {
   return row.mawb + '|' + row.customer;
+}
+
+function normalizeFileNameForMatch_(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
